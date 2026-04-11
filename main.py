@@ -2,6 +2,7 @@ from app.router import route_query
 from app.agents.tutor import tutor_agent_stream
 from app.agents.examiner import examiner_agent
 from app.agents.evaluator import evaluate_answer, extract_score
+from app.memory.weakness_tracker import update_weakness, generate_report
 
 
 def _normalize_question_line(line: str) -> str:
@@ -9,7 +10,6 @@ def _normalize_question_line(line: str) -> str:
     if not line:
         return ""
 
-    # Remove common prefixes like "1.", "Q1:", "-", "*".
     line = line.lstrip("-*").strip()
 
     lowered = line.lower()
@@ -31,7 +31,6 @@ def _extract_questions(text: str) -> list[str]:
         if cleaned and cleaned.endswith("?"):
             questions.append(cleaned)
 
-    # Fallback: if model did not use question marks, keep non-empty lines.
     if not questions:
         for raw_line in text.splitlines():
             cleaned = _normalize_question_line(raw_line)
@@ -39,6 +38,7 @@ def _extract_questions(text: str) -> list[str]:
                 questions.append(cleaned)
 
     return questions[:5]
+
 
 def main():
     while True:
@@ -68,7 +68,7 @@ def main():
             if pending:
                 print(pending)
 
-        # 🧪 Examiner Agent (Normal Output)
+        # 🧪 Examiner Agent + Evaluation + Tracking
         elif route == "examiner":
             topic = input("Exam topic: ").strip() or query
             response = examiner_agent(topic)
@@ -91,8 +91,16 @@ def main():
                 if not user_answer:
                     user_answer = "No answer provided."
 
-                evaluation = evaluate_answer(topic=topic, question=question, answer=user_answer)
+                evaluation = evaluate_answer(
+                    topic=topic,
+                    question=question,
+                    answer=user_answer
+                )
+
                 score = extract_score(evaluation)
+
+                # 🔥 NEW: Track weakness
+                update_weakness(topic, score)
 
                 total_score += score
                 attempted += 1
@@ -109,6 +117,10 @@ def main():
             print(f"Questions attempted: {attempted}")
             print(f"Total score: {total_score}/{max_score}")
             print(f"Overall percentage: {percent:.1f}%")
+
+            # 🔥 NEW: Show weakness report
+            print("\n📊 Performance Report:")
+            print(generate_report())
 
         print()
 
