@@ -1,8 +1,9 @@
 from app.router import route_query
-from app.agents.tutor import tutor_agent_stream
+from app.agents.tutor import tutor_agent_stream, tutor_agent, is_diagram_query
 from app.agents.examiner import examiner_agent
 from app.agents.evaluator import evaluate_answer, extract_score
 from app.memory.weakness_tracker import update_weakness, generate_report
+from app.utils.mermaid_parser import extract_mermaid_block
 
 
 def _normalize_question_line(line: str) -> str:
@@ -57,16 +58,29 @@ def main():
 
         # 🧠 Tutor Agent (Streaming)
         if route == "tutor":
-            pending = ""
+            if is_diagram_query(query):
+                full_response = tutor_agent(query)
+                explanation_text, mermaid_code = extract_mermaid_block(full_response)
 
-            for piece in tutor_agent_stream(query):
-                pending += piece
-                while "\n" in pending:
-                    line, pending = pending.split("\n", 1)
-                    print(line)
+                if explanation_text:
+                    print(explanation_text)
 
-            if pending:
-                print(pending)
+                if mermaid_code:
+                    print("\nGenerated Diagram (Mermaid):")
+                    print(mermaid_code)
+                else:
+                    print(full_response)
+            else:
+                pending = ""
+
+                for piece in tutor_agent_stream(query):
+                    pending += piece
+                    while "\n" in pending:
+                        line, pending = pending.split("\n", 1)
+                        print(line)
+
+                if pending:
+                    print(pending)
 
         # 🧪 Examiner Agent + Evaluation + Tracking
         elif route == "examiner":
