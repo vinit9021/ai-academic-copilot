@@ -12,3 +12,6 @@ wheels/
 __pycache__/
 *.pyc
 progress.json
+
+# Local document inputs for RAG (do not commit)
+data/
